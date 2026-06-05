@@ -313,23 +313,13 @@ function simulateTranscription(req, res) {
   }, 1000);
 }
 
-// 5. POST /api/summary: Summarize text using Gemini
-app.post('/api/summary', async (req, res) => {
-  const { transcript, patientName } = req.body;
-  if (!transcript) {
-    return res.status(400).json({ error: 'No transcript provided for summarization' });
+// Helper function to generate summary via Groq Llama 3.3
+async function generateGroqSummary(transcript, patientName) {
+  if (!process.env.GROQ_API_KEY) {
+    throw new Error('GROQ_API_KEY is not defined in environment variables');
   }
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.log('No GEMINI_API_KEY found, fallback to simulated summary.');
-    return simulateSummary(req, res);
-  }
-
-  try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
-    const prompt = `You are a senior medical consultant. You are provided with a transcript of a doctor-patient interview conducted by a junior doctor.
+  const prompt = `You are a senior medical consultant. You are provided with a transcript of a doctor-patient interview conducted by a junior doctor.
 Translate any Hinglish, Tamil, Telugu or other languages to English, and compile a professional clinical note focusing ONLY on information verbally discussed in the conversation.
 Do NOT create medication plans, do NOT create arbitrary vitals charts. Only document what was spoken.
 
@@ -347,29 +337,112 @@ Patient Name: ${patientName || 'Unnamed'}
 Transcript:
 ${transcript}`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.1
+    })
+  });
 
-    logAPIActivity('Google Gemini', { patientName, transcriptLength: transcript.length }, { summary: text });
-
-    res.json({ summary: text });
-  } catch (error) {
-    console.error('Gemini Summarization Error:', error);
-    const errorStr = String(error.message || error);
-    logAPIActivity('Google Gemini', { patientName, transcriptLength: transcript.length }, { exception: errorStr }, true);
-
-    const isRateLimit = error.status === 429 || errorStr.includes('429') || errorStr.includes('RESOURCE_EXHAUSTED') || errorStr.includes('Quota exceeded') || errorStr.includes('limit');
-
-    if (isRateLimit) {
-      return res.status(429).json({
-        error: 'Rate Limit Reached (Free Tier Limit): Gemini API rate limit or quota exceeded. Please wait a minute before retrying or upgrade your Google AI Studio plan.'
-      });
-    }
-
-    return res.status(error.status || 500).json({
-      error: `Gemini API Error: ${error.message || error}`
-    });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Groq API returned status ${response.status}: ${errorText}`);
   }
+
+  const data = await response.json();
+  if (data.choices && data.choices[0] && data.choices[0].message) {
+    return data.choices[0].message.content;
+  } else {
+    throw new Error('Unexpected Groq API response structure');
+  }
+}
+
+// Helper function to generate summary via Gemini
+async function generateGeminiSummary(transcript, patientName) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY is not defined in environment variables');
+  }
+
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+  const prompt = `You are a senior medical consultant. You are provided with a transcript of a doctor-patient interview conducted by a junior doctor.
+Translate any Hinglish, Tamil, Telugu or other languages to English, and compile a professional clinical note focusing ONLY on information verbally discussed in the conversation.
+Do NOT create medication plans, do NOT create arbitrary vitals charts. Only document what was spoken.
+
+Do NOT use any markdown bold formatting (do not output double asterisks '**'). 
+Format the note with clear uppercase headers on their own lines:
+CHIEF COMPLAINTS & HISTORY:
+- List symptoms, onset, duration, and patient-reported severity.
+- Systemic symptoms or weaknesses.
+
+DIAGNOSTIC EXCLUSIONS & CONTROLS:
+- List symptoms denied by the patient (e.g. no productive cough, no chest pain, no known drug allergies).
+
+Keep the summary concise and focused entirely on the conversation. Write in a firm, direct, clinical medical tone.
+Patient Name: ${patientName || 'Unnamed'}
+Transcript:
+${transcript}`;
+
+  const result = await model.generateContent(prompt);
+  return result.response.text();
+}
+
+// 5. POST /api/summary: Summarize text using Groq Llama 3.3 (primary) or Gemini (backup)
+app.post('/api/summary', async (req, res) => {
+  const { transcript, patientName } = req.body;
+  if (!transcript) {
+    return res.status(400).json({ error: 'No transcript provided for summarization' });
+  }
+
+  let summaryText = null;
+  let usedAPI = '';
+  let apiErrors = [];
+
+  // Try Groq Llama 3.3 first (if key exists)
+  if (process.env.GROQ_API_KEY) {
+    try {
+      console.log('Attempting summary generation via Groq Llama 3.3...');
+      summaryText = await generateGroqSummary(transcript, patientName);
+      usedAPI = 'Groq Llama 3.3';
+    } catch (error) {
+      console.warn('Groq Llama 3.3 summary generation failed:', error.message || error);
+      apiErrors.push(`Groq: ${error.message || error}`);
+    }
+  }
+
+  // Fallback to Google Gemini
+  if (!summaryText && process.env.GEMINI_API_KEY) {
+    try {
+      console.log('Attempting summary generation via Google Gemini...');
+      summaryText = await generateGeminiSummary(transcript, patientName);
+      usedAPI = 'Google Gemini';
+    } catch (error) {
+      console.warn('Google Gemini summary generation failed:', error.message || error);
+      apiErrors.push(`Gemini: ${error.message || error}`);
+    }
+  }
+
+  // Fallback to local simulation if everything fails
+  if (!summaryText) {
+    console.log('All summary generation APIs failed. Triggering simulation fallback.');
+    logAPIActivity('Summary Generation - ALL FAILED', { patientName, errors: apiErrors }, { fallback: 'Simulation' }, true);
+    return simulateSummary(req, res);
+  }
+
+  logAPIActivity(usedAPI, { patientName, transcriptLength: transcript.length }, { summary: summaryText });
+  res.json({ summary: summaryText, apiUsed: usedAPI });
 });
 
 function simulateSummary(req, res) {
