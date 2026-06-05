@@ -327,7 +327,7 @@ app.post('/api/summary', async (req, res) => {
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `You are a senior medical consultant. You are provided with a transcript of a doctor-patient interview conducted by a junior doctor.
 Translate any Hinglish, Tamil, Telugu or other languages to English, and compile a professional clinical note focusing ONLY on information verbally discussed in the conversation.
