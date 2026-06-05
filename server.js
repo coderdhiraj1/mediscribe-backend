@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
@@ -67,24 +68,58 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
 });
 
-// Helper functions for reading/writing DB
-function readSessions() {
+// Helper function to safely encode passwords containing special characters like '@' in MongoDB connection strings
+function getSafeMongoURI(uri) {
+  if (!uri) return uri;
   try {
-    const data = fs.readFileSync(DB_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error('Error reading sessions database file:', error);
-    return [];
+    const prefix = uri.startsWith('mongodb+srv://') ? 'mongodb+srv://' : 'mongodb://';
+    const cleanUri = uri.substring(prefix.length);
+    const lastAtIdx = cleanUri.lastIndexOf('@');
+    if (lastAtIdx === -1) return uri; // No credential separator found
+    
+    const authPart = cleanUri.substring(0, lastAtIdx);
+    const hostPart = cleanUri.substring(lastAtIdx + 1);
+    
+    const colonIdx = authPart.indexOf(':');
+    if (colonIdx === -1) return uri; // No password found
+    
+    const username = authPart.substring(0, colonIdx);
+    const password = authPart.substring(colonIdx + 1);
+    
+    // Check if the password contains '@' and is not already URL-encoded
+    if (password.includes('@') && !password.includes('%40')) {
+      const encodedPassword = encodeURIComponent(password);
+      return `${prefix}${username}:${encodedPassword}@${hostPart}`;
+    }
+  } catch (err) {
+    console.error('Failed to parse MONGO_DB_URI helper:', err);
   }
+  return uri;
 }
 
-function writeSessions(sessions) {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(sessions, null, 2));
-  } catch (error) {
-    console.error('Error writing sessions database file:', error);
-  }
+// Connect to MongoDB
+const mongoURI = getSafeMongoURI(process.env.MONGO_DB_URI);
+if (mongoURI) {
+  mongoose.connect(mongoURI)
+    .then(() => console.log('Successfully connected to MongoDB'))
+    .catch(err => console.error('MongoDB connection error:', err));
+} else {
+  console.warn('MONGO_DB_URI is not defined in environment variables. Running without database connection.');
 }
+
+// Define Mongoose Schema and Model
+const sessionSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  patientName: { type: String, default: 'Unnamed Patient' },
+  title: { type: String, default: 'General Consultation' },
+  language: { type: String, default: 'English' },
+  date: { type: String },
+  transcript: { type: String, default: '' },
+  summary: { type: String, default: '' },
+  audioFile: { type: String, default: null }
+}, { timestamps: true });
+
+const Session = mongoose.model('Session', sessionSchema);
 
 // MOCK DATA for local testing fallbacks
 const MOCK_TRANSCRIPTS = {
@@ -141,18 +176,21 @@ Junior Doctor: I will document this for the attending consultant.`,
 
 // --- ENDPOINTS ---
 
-// 1. GET /api/sessions: Fetch all sessions
-app.get('/api/sessions', (req, res) => {
-  const sessions = readSessions();
-  res.json(sessions);
+// 1. GET /api/sessions: Fetch all sessions from MongoDB (newest first)
+app.get('/api/sessions', async (req, res) => {
+  try {
+    const sessions = await Session.find().sort({ createdAt: -1 });
+    res.json(sessions);
+  } catch (error) {
+    console.error('Error fetching sessions from MongoDB:', error);
+    res.status(500).json({ error: 'Failed to fetch sessions from database' });
+  }
 });
 
-// 2. POST /api/sessions: Save or update session (handles optional audio upload)
-app.post('/api/sessions', upload.single('audio'), (req, res) => {
+// 2. POST /api/sessions: Save or update session in MongoDB (handles optional audio upload)
+app.post('/api/sessions', upload.single('audio'), async (req, res) => {
   try {
     const { id, patientName, title, language, date, transcript, summary } = req.body;
-    const sessions = readSessions();
-
     let audioFile = req.body.audioFile || null;
 
     // If a new audio file was uploaded in this request
@@ -171,49 +209,51 @@ app.post('/api/sessions', upload.single('audio'), (req, res) => {
       audioFile: audioFile
     };
 
-    const existingIndex = sessions.findIndex(s => s.id === sessionData.id);
-    if (existingIndex > -1) {
-      // If updating, preserve old audio file if no new file is uploaded
+    // Find existing session to check/preserve the audio file if no new file is uploaded
+    const existing = await Session.findOne({ id: sessionData.id });
+    if (existing) {
       if (!req.file && !audioFile) {
-        sessionData.audioFile = sessions[existingIndex].audioFile;
+        sessionData.audioFile = existing.audioFile;
       }
-      sessions[existingIndex] = sessionData;
-    } else {
-      sessions.unshift(sessionData);
     }
 
-    writeSessions(sessions);
-    res.json(sessionData);
+    // Upsert the session document in MongoDB
+    const savedSession = await Session.findOneAndUpdate(
+      { id: sessionData.id },
+      sessionData,
+      { new: true, upsert: true }
+    );
+
+    res.json(savedSession);
   } catch (error) {
-    console.error('Error saving session:', error);
-    res.status(500).json({ error: 'Failed to save session' });
+    console.error('Error saving session to MongoDB:', error);
+    res.status(500).json({ error: 'Failed to save session to database' });
   }
 });
 
-// 3. DELETE /api/sessions/:id: Delete session and its audio
-app.delete('/api/sessions/:id', (req, res) => {
+// 3. DELETE /api/sessions/:id: Delete session from MongoDB and remove its local audio file
+app.delete('/api/sessions/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    let sessions = readSessions();
-    const session = sessions.find(s => s.id === id);
+    const session = await Session.findOne({ id });
 
     if (session) {
-      // Remove physical audio file if it exists
+      // Remove physical audio file from local uploads folder if it exists
       if (session.audioFile) {
         const filePath = path.join(UPLOADS_DIR, session.audioFile);
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
       }
-      sessions = sessions.filter(s => s.id !== id);
-      writeSessions(sessions);
+      // Remove document from MongoDB
+      await Session.deleteOne({ id });
       res.json({ success: true, message: 'Session deleted successfully' });
     } else {
-      res.status(404).json({ error: 'Session not found' });
+      res.status(404).json({ error: 'Session not found in database' });
     }
   } catch (error) {
-    console.error('Error deleting session:', error);
-    res.status(500).json({ error: 'Failed to delete session' });
+    console.error('Error deleting session from MongoDB:', error);
+    res.status(500).json({ error: 'Failed to delete session from database' });
   }
 });
 
