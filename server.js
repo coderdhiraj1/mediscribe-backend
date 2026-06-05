@@ -116,7 +116,9 @@ const sessionSchema = new mongoose.Schema({
   date: { type: String },
   transcript: { type: String, default: '' },
   summary: { type: String, default: '' },
-  audioFile: { type: String, default: null }
+  audioFile: { type: String, default: null },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date, default: null }
 }, { timestamps: true });
 
 const Session = mongoose.model('Session', sessionSchema);
@@ -176,10 +178,10 @@ Junior Doctor: I will document this for the attending consultant.`,
 
 // --- ENDPOINTS ---
 
-// 1. GET /api/sessions: Fetch all sessions from MongoDB (newest first)
+// 1. GET /api/sessions: Fetch all active (non-soft-deleted) sessions from MongoDB
 app.get('/api/sessions', async (req, res) => {
   try {
-    const sessions = await Session.find().sort({ createdAt: -1 });
+    const sessions = await Session.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 });
     res.json(sessions);
   } catch (error) {
     console.error('Error fetching sessions from MongoDB:', error);
@@ -206,7 +208,9 @@ app.post('/api/sessions', upload.single('audio'), async (req, res) => {
       date: date || new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
       transcript: transcript || '',
       summary: summary || '',
-      audioFile: audioFile
+      audioFile: audioFile,
+      isDeleted: false, // Reset soft delete flag on save/overwrite
+      deletedAt: null
     };
 
     // Find existing session to check/preserve the audio file if no new file is uploaded
@@ -231,29 +235,24 @@ app.post('/api/sessions', upload.single('audio'), async (req, res) => {
   }
 });
 
-// 3. DELETE /api/sessions/:id: Delete session from MongoDB and remove its local audio file
+// 3. DELETE /api/sessions/:id: Soft-delete session in MongoDB (keeps records and audio intact on disk)
 app.delete('/api/sessions/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const session = await Session.findOne({ id });
 
     if (session) {
-      // Remove physical audio file from local uploads folder if it exists
-      if (session.audioFile) {
-        const filePath = path.join(UPLOADS_DIR, session.audioFile);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      }
-      // Remove document from MongoDB
-      await Session.deleteOne({ id });
-      res.json({ success: true, message: 'Session deleted successfully' });
+      // Perform soft delete instead of hard delete (keep physical audio file and document)
+      session.isDeleted = true;
+      session.deletedAt = new Date();
+      await session.save();
+      res.json({ success: true, message: 'Session soft-deleted successfully' });
     } else {
       res.status(404).json({ error: 'Session not found in database' });
     }
   } catch (error) {
-    console.error('Error deleting session from MongoDB:', error);
-    res.status(500).json({ error: 'Failed to delete session from database' });
+    console.error('Error soft-deleting session from MongoDB:', error);
+    res.status(500).json({ error: 'Failed to soft-delete session from database' });
   }
 });
 
