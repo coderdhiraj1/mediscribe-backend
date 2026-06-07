@@ -131,58 +131,7 @@ const sessionSchema = new mongoose.Schema({
 
 const Session = mongoose.model('Session', sessionSchema);
 
-// MOCK DATA for local testing fallbacks
-const MOCK_TRANSCRIPTS = {
-  hi: {
-    language: 'Hinglish',
-    transcript: `Junior Doctor: नमस्ते सुनीता जी, बैठिए। क्या तकलीफ है आपको?
-Patient: नमस्ते डॉक्टर साहब। मुझे दो दिन से बहुत तेज़ बुखार है और सूखी खांसी भी आ रही है। Body pain भी बहुत हो रहा है।
-Junior Doctor: बुखार कितना था? क्या आपने नापा था?
-Patient: हां, कल रात को 102 degrees था डॉक्टर साहब। मैंने paracetamol ली थी, तो थोड़ा कम हुआ पर सुबह फिर से बढ़ गया।
-Junior Doctor: और खांसी के साथ बलगम आ रहा है या सिर्फ सूखी खांसी है? सांस फूलने की समस्या तो नहीं है?
-Patient: नहीं, बलगम नहीं है, सूखी खांसी ही है। सांस लेने में कोई तकलीफ नहीं है, बस कमजोरी बहुत लग रही है।
-Junior Doctor: ठीक है, मैं आपका fever और oxygen level check कर लेता हूँ। SpO2 98% है जो बिल्कुल सामान्य है। छाती में से भी कोई आवाज नहीं है, lungs clear हैं। आप आराम कीजिए, मैं सीनियर डॉक्टर साहब को रिपोर्ट सौंपता हूँ।`,
-    summary: `CHIEF COMPLAINTS & HISTORY:
-- Fever: High-grade fever (reported up to 102°F) persisting for the past 2 days. The temperature drops temporarily with Paracetamol but recurs.
-- Cough: Dry, non-productive cough of 2 days duration.
-- Systemic: Generalized body aches, myalgia, and associated physical weakness/fatigue.
 
-DIAGNOSTIC EXCLUSIONS & CONTROLS:
-- Denies productive cough or phlegm.
-- Denies chest pain or shortness of breath (dyspnea).
-- No known drug allergies reported.`
-  },
-  ta: {
-    language: 'Tamil',
-    transcript: `Junior Doctor: வணக்கம் பிரியா, சொல்லுங்க உங்களுக்கு என்ன பிரச்சனை?
-Patient: வணக்கம் டாக்டர். கடந்த 3 நாட்களா severe headache இருக்கு. தலைக்கு வலது பக்கத்துல ஒரு மாதிரி throbbing pain இருக்கு.
-Junior Doctor: வெளிச்சம் பார்த்தா கண் கூசுதா? வாந்தி ஏதும் வந்ததா?
-Patient: ஆமா டாக்டர், லைட் பார்த்தாலே கண் ரொம்ப வலிக்குது, nausea-வும் இருக்கு. நேத்து கூட ஒரு தரம் வாந்தி எடுத்தேன்.
-Junior Doctor: சரி, நான் BP செக் பண்றேன்... BP 120/80 normal. நீங்க ஒழுங்கா தூங்குறீங்களா?
-Patient: இல்ல டாக்டர், இந்த வாரம் office project-னால தூக்கம் ரொம்ப கம்மியாகிடுச்சு.
-Junior Doctor: சரி, நான் இத சீனியர் டாக்டரிடம் அப்டேட் பண்றேன்.`,
-    summary: `CHIEF COMPLAINTS & HISTORY:
-- Headache: Severe, right-sided throbbing headache persisting for the past 3 days.
-- Gastrointestinal: Associated moderate nausea and one episode of vomiting reported yesterday.
-- Sensory: Reports photophobia (eye pain when exposed to bright light) and phonophobia (irritated by loud sounds).
-
-SOCIAL & CONTEXTUAL FACTORS:
-- Trigger: Severe sleep deprivation during the past week due to office project deadlines.
-- Medication: Home migraine rescue medicines were taken but failed to provide relief.`
-  },
-  en: {
-    language: 'English',
-    transcript: `Junior Doctor: Hello Mr. Davis. I see you are here for a blood pressure review. Let's record your vitals.
-Patient: Yes, my home readings have been running high, around 145 over 92, even though I take my medications.
-Junior Doctor: I've checked your clinic BP; it is 148/94. You are currently taking Amlodipine 5mg, correct?
-Patient: Yes, daily in the morning.
-Junior Doctor: I will document this for the attending consultant.`,
-    summary: `CHIEF COMPLAINTS & HISTORY:
-- Reason for Consult: Blood pressure follow-up. Patient reports home blood pressure readings have been elevated, averaging around 145/92 mmHg over the past two weeks.
-- Medication Compliance: Patient reports complete compliance with daily morning dosage of Amlodipine 5mg.
-- Associated Symptoms: Denies headaches, dizziness, pedal edema (ankle swelling), dyspnea, or chest pain.`
-  }
-};
 
 // --- ENDPOINTS ---
 
@@ -304,12 +253,12 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
     }
   }
 
-  // Fallback to simulation if GROQ API key is missing
+  // Fail immediately if GROQ API key is missing
   if (!process.env.GROQ_API_KEY) {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
-    return simulateTranscription(req, res, cloudinaryUrl);
+    return res.status(500).json({ error: 'Groq API Key is not configured on the backend server.' });
   }
 
   try {
@@ -383,28 +332,7 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   }
 });
 
-// Helper simulation function for transcription (supports Cloudinary URL passing)
-function simulateTranscription(req, res, cloudinaryUrl) {
-  setTimeout(() => {
-    const lang = req.body.language || 'auto';
-    const patientName = req.body.patientName || '';
 
-    let key = 'hi';
-    if (lang === 'ta' || patientName.toLowerCase().includes('priya')) {
-      key = 'ta';
-    } else if (lang === 'en' || patientName.toLowerCase().includes('john')) {
-      key = 'en';
-    }
-
-    const mock = MOCK_TRANSCRIPTS[key];
-    res.json({
-      transcript: mock.transcript,
-      filename: req.file.filename,
-      detectedLanguage: mock.language,
-      audioUrl: cloudinaryUrl
-    });
-  }, 1000);
-}
 
 // Helper function to generate summary via Groq Llama 3.3
 async function generateGroqSummary(transcript, patientName) {
@@ -525,28 +453,17 @@ app.post('/api/summary', async (req, res) => {
     }
   }
 
-  // Fallback to local simulation if everything fails
+  // Return error if everything fails
   if (!summaryText) {
-    logAPIActivity('Summary Generation - ALL FAILED', { patientName, errors: apiErrors }, { fallback: 'Simulation' }, true);
-    return simulateSummary(req, res);
+    logAPIActivity('Summary Generation - ALL FAILED', { patientName, errors: apiErrors }, { error: 'Clinical summary generation failed' }, true);
+    return res.status(500).json({ error: `Clinical summary generation failed. Remote API errors: ${apiErrors.join(', ')}` });
   }
 
   logAPIActivity(usedAPI, { patientName, transcriptLength: transcript.length }, { summary: summaryText });
   res.json({ summary: summaryText, apiUsed: usedAPI });
 });
 
-function simulateSummary(req, res) {
-  setTimeout(() => {
-    const transcriptText = req.body.transcript || '';
-    let key = 'hi';
-    if (transcriptText.includes('வணக்கம்') || transcriptText.includes('headache')) {
-      key = 'ta';
-    } else if (transcriptText.includes('Davis') || transcriptText.includes('blood pressure')) {
-      key = 'en';
-    }
-    res.json({ summary: MOCK_TRANSCRIPTS[key].summary });
-  }, 1000);
-}
+
 
 // Start the server
 app.listen(PORT, () => {
