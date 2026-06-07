@@ -377,7 +377,9 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
         error: 'Rate Limit Reached (Free Tier Limit) on Groq Whisper transcription API. Please try again in a few moments.'
       });
     }
-    simulateTranscription(req, res, cloudinaryUrl);
+    return res.status(500).json({
+      error: `Groq Whisper Transcription Error: ${errStr}`
+    });
   }
 });
 
