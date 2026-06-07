@@ -284,7 +284,7 @@ app.delete('/api/sessions/:id', async (req, res) => {
   }
 });
 
-// 4. POST /api/transcribe: Transcribe speech to text via Groq Whisper API
+// 4. POST /api/transcribe: Transcribe speech to text via Groq Whisper API (uploads to Cloudinary & flushes disk)
 app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No audio file uploaded' });
@@ -292,11 +292,31 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
 
   const filePath = req.file.path;
   const targetLanguage = req.body.language || 'auto';
+  let cloudinaryUrl = null;
+
+  // 1. Upload to Cloudinary immediately to secure the media file permanently
+  if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) {
+    try {
+      console.log('Uploading audio to Cloudinary during transcription:', req.file.filename);
+      const uploadResult = await cloudinary.uploader.upload(filePath, {
+        resource_type: 'video', // 'video' resource type is required for audio files
+        folder: 'mediscribe_audio'
+      });
+      cloudinaryUrl = uploadResult.secure_url;
+      console.log('Successfully uploaded to Cloudinary:', cloudinaryUrl);
+    } catch (uploadErr) {
+      console.error('Cloudinary upload failed in transcribe route:', uploadErr);
+    }
+  }
 
   // Fallback to simulation if GROQ API key is missing
   if (!process.env.GROQ_API_KEY) {
     console.log('No GROQ_API_KEY found, fallback to simulated transcription.');
-    return simulateTranscription(req, res);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log('Cleaned up temporary local file from uploads/.');
+    }
+    return simulateTranscription(req, res, cloudinaryUrl);
   }
 
   try {
@@ -316,6 +336,12 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
       },
       body: form
     });
+
+    // Clean up temporary local file as it has already been sent to Groq and Cloudinary
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log('Cleaned up temporary local file from uploads/.');
+    }
 
     if (!response.ok) {
       const status = response.status;
@@ -341,25 +367,30 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
 
     res.json({
       transcript: data.text,
-      filename: req.file.filename
+      filename: req.file.filename,
+      audioUrl: cloudinaryUrl // Return the secure Cloudinary HTTPS URL
     });
   } catch (error) {
     console.error('Groq Whisper Transcription Error:', error);
     const errStr = String(error.message || error);
     logAPIActivity('Groq Whisper', { filename: req.file.filename, language: targetLanguage }, { exception: errStr }, true);
 
-    // If rate limit error occurs, return it. Otherwise, call simulation fallback.
+    // Clean up local file on exception
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
     if (errStr.includes('429') || errStr.includes('rate limit')) {
       return res.status(429).json({
         error: 'Rate Limit Reached (Free Tier Limit) on Groq Whisper transcription API. Please try again in a few moments.'
       });
     }
-    simulateTranscription(req, res);
+    simulateTranscription(req, res, cloudinaryUrl);
   }
 });
 
-// Helper simulation function for transcription
-function simulateTranscription(req, res) {
+// Helper simulation function for transcription (supports Cloudinary URL passing)
+function simulateTranscription(req, res, cloudinaryUrl) {
   setTimeout(() => {
     const lang = req.body.language || 'auto';
     const patientName = req.body.patientName || '';
@@ -375,7 +406,8 @@ function simulateTranscription(req, res) {
     res.json({
       transcript: mock.transcript,
       filename: req.file.filename,
-      detectedLanguage: mock.language
+      detectedLanguage: mock.language,
+      audioUrl: cloudinaryUrl
     });
   }, 1000);
 }
