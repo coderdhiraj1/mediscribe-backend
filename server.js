@@ -53,7 +53,6 @@ function logAPIActivity(apiName, requestDetails, responseDetails, isError = fals
       `Response: ${JSON.stringify(responseDetails, null, 2)}\n` +
       `----------------------------------------------------------------------\n\n`;
     fs.appendFileSync(logFile, logMessage, 'utf8');
-    console.log(`[LOG] Recorded ${apiName} activity to api_activity.log`);
   } catch (error) {
     console.error('Failed to write to api_activity.log:', error);
   }
@@ -208,7 +207,6 @@ app.post('/api/sessions', upload.single('audio'), async (req, res) => {
     // If a new audio file was uploaded in this request, upload to Cloudinary
     if (req.file) {
       try {
-        console.log('Uploading audio to Cloudinary:', req.file.filename);
         const result = await cloudinary.uploader.upload(req.file.path, {
           resource_type: 'video', // 'video' is required on Cloudinary to process audio files like mp3/wav
           folder: 'mediscribe_audio'
@@ -218,7 +216,6 @@ app.post('/api/sessions', upload.single('audio'), async (req, res) => {
 
         // Clean up the temporary local file immediately
         fs.unlinkSync(req.file.path);
-        console.log('Temporary local file deleted from disk.');
       } catch (uploadErr) {
         console.error('Cloudinary Upload Failure:', uploadErr);
         // Fall back to local reference if upload failed, but don't crash
@@ -297,13 +294,11 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   // 1. Upload to Cloudinary immediately to secure the media file permanently
   if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY) {
     try {
-      console.log('Uploading audio to Cloudinary during transcription:', req.file.filename);
       const uploadResult = await cloudinary.uploader.upload(filePath, {
         resource_type: 'video', // 'video' resource type is required for audio files
         folder: 'mediscribe_audio'
       });
       cloudinaryUrl = uploadResult.secure_url;
-      console.log('Successfully uploaded to Cloudinary:', cloudinaryUrl);
     } catch (uploadErr) {
       console.error('Cloudinary upload failed in transcribe route:', uploadErr);
     }
@@ -311,10 +306,8 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
 
   // Fallback to simulation if GROQ API key is missing
   if (!process.env.GROQ_API_KEY) {
-    console.log('No GROQ_API_KEY found, fallback to simulated transcription.');
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      console.log('Cleaned up temporary local file from uploads/.');
     }
     return simulateTranscription(req, res, cloudinaryUrl);
   }
@@ -340,7 +333,6 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
     // Clean up temporary local file as it has already been sent to Groq and Cloudinary
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      console.log('Cleaned up temporary local file from uploads/.');
     }
 
     if (!response.ok) {
@@ -512,7 +504,6 @@ app.post('/api/summary', async (req, res) => {
   // Try Groq Llama 3.3 first (if key exists)
   if (process.env.GROQ_API_KEY) {
     try {
-      console.log('Attempting summary generation via Groq Llama 3.3...');
       summaryText = await generateGroqSummary(transcript, patientName);
       usedAPI = 'Groq Llama 3.3';
     } catch (error) {
@@ -524,7 +515,6 @@ app.post('/api/summary', async (req, res) => {
   // Fallback to Google Gemini
   if (!summaryText && process.env.GEMINI_API_KEY) {
     try {
-      console.log('Attempting summary generation via Google Gemini...');
       summaryText = await generateGeminiSummary(transcript, patientName);
       usedAPI = 'Google Gemini';
     } catch (error) {
@@ -535,7 +525,6 @@ app.post('/api/summary', async (req, res) => {
 
   // Fallback to local simulation if everything fails
   if (!summaryText) {
-    console.log('All summary generation APIs failed. Triggering simulation fallback.');
     logAPIActivity('Summary Generation - ALL FAILED', { patientName, errors: apiErrors }, { fallback: 'Simulation' }, true);
     return simulateSummary(req, res);
   }

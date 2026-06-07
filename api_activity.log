@@ -1,0 +1,60 @@
+[2026-06-07T09:33:36.334Z] [SUCCESS] [Groq Whisper]
+Request: {
+  "filename": "audio-1780824811570-903749807.mp3",
+  "language": "auto"
+}
+Response: {
+  "transcript": " A lot of testing being done by Dheeraj."
+}
+----------------------------------------------------------------------
+
+[2026-06-07T09:33:36.730Z] [SUCCESS] [Groq Llama 3.3]
+Request: {
+  "patientName": "",
+  "transcriptLength": 40
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The patient mentions that a lot of testing is being done by Dheeraj, but does not specify the nature or purpose of the testing, or any associated symptoms.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No specific symptoms or medical history were discussed or denied by the patient during the conversation."
+}
+----------------------------------------------------------------------
+
+[2026-06-07T09:37:41.737Z] [SUCCESS] [Groq Whisper]
+Request: {
+  "filename": "audio-1780825055910-747746040.mp3",
+  "language": "auto"
+}
+Response: {
+  "transcript": " This is just a file run by the register."
+}
+----------------------------------------------------------------------
+
+[2026-06-07T09:37:42.105Z] [SUCCESS] [Groq Llama 3.3]
+Request: {
+  "patientName": "",
+  "transcriptLength": 41
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- No information provided regarding symptoms, onset, duration, or patient-reported severity.\n- No systemic symptoms or weaknesses discussed.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No symptoms denied by the patient, as no symptoms were discussed.\n- No known drug allergies or other relevant medical history mentioned."
+}
+----------------------------------------------------------------------
+
+[2026-06-07T09:40:11.735Z] [SUCCESS] [Groq Whisper]
+Request: {
+  "filename": "audio-1780825207442-692970754.mp3",
+  "language": "auto"
+}
+Response: {
+  "transcript": " This is testing done by the eRail. Let us see how it's working."
+}
+----------------------------------------------------------------------
+
+[2026-06-07T09:40:12.351Z] [SUCCESS] [Groq Llama 3.3]
+Request: {
+  "patientName": "",
+  "transcriptLength": 64
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- No symptoms or complaints were discussed during the conversation.\n- The conversation did not mention any onset, duration, or patient-reported severity of symptoms.\n- No systemic symptoms or weaknesses were reported.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- The conversation did not include any denial of symptoms by the patient, as no symptoms were discussed.\n- No information was provided regarding known drug allergies or other relevant medical history."
+}
+----------------------------------------------------------------------
+
