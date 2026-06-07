@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const cloudinary = require('cloudinary').v2;
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
@@ -11,6 +12,13 @@ const FormData = require('form-data');
 
 // Load environment variables from the absolute path
 dotenv.config({ path: path.join(__dirname, '.env') });
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -76,16 +84,16 @@ function getSafeMongoURI(uri) {
     const cleanUri = uri.substring(prefix.length);
     const lastAtIdx = cleanUri.lastIndexOf('@');
     if (lastAtIdx === -1) return uri; // No credential separator found
-    
+
     const authPart = cleanUri.substring(0, lastAtIdx);
     const hostPart = cleanUri.substring(lastAtIdx + 1);
-    
+
     const colonIdx = authPart.indexOf(':');
     if (colonIdx === -1) return uri; // No password found
-    
+
     const username = authPart.substring(0, colonIdx);
     const password = authPart.substring(colonIdx + 1);
-    
+
     // Check if the password contains '@' and is not already URL-encoded
     if (password.includes('@') && !password.includes('%40')) {
       const encodedPassword = encodeURIComponent(password);
@@ -117,6 +125,7 @@ const sessionSchema = new mongoose.Schema({
   transcript: { type: String, default: '' },
   summary: { type: String, default: '' },
   audioFile: { type: String, default: null },
+  audioUrl: { type: String, default: null },
   isDeleted: { type: Boolean, default: false },
   deletedAt: { type: Date, default: null }
 }, { timestamps: true });
@@ -189,15 +198,32 @@ app.get('/api/sessions', async (req, res) => {
   }
 });
 
-// 2. POST /api/sessions: Save or update session in MongoDB (handles optional audio upload)
+// 2. POST /api/sessions: Save or update session in MongoDB (handles optional audio upload to Cloudinary)
 app.post('/api/sessions', upload.single('audio'), async (req, res) => {
   try {
     const { id, patientName, title, language, date, transcript, summary } = req.body;
+    let audioUrl = req.body.audioUrl || null;
     let audioFile = req.body.audioFile || null;
 
-    // If a new audio file was uploaded in this request
+    // If a new audio file was uploaded in this request, upload to Cloudinary
     if (req.file) {
-      audioFile = req.file.filename;
+      try {
+        console.log('Uploading audio to Cloudinary:', req.file.filename);
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          resource_type: 'video', // 'video' is required on Cloudinary to process audio files like mp3/wav
+          folder: 'mediscribe_audio'
+        });
+        audioUrl = result.secure_url;
+        audioFile = req.file.filename;
+
+        // Clean up the temporary local file immediately
+        fs.unlinkSync(req.file.path);
+        console.log('Temporary local file deleted from disk.');
+      } catch (uploadErr) {
+        console.error('Cloudinary Upload Failure:', uploadErr);
+        // Fall back to local reference if upload failed, but don't crash
+        audioFile = req.file.filename;
+      }
     }
 
     const sessionData = {
@@ -209,15 +235,17 @@ app.post('/api/sessions', upload.single('audio'), async (req, res) => {
       transcript: transcript || '',
       summary: summary || '',
       audioFile: audioFile,
+      audioUrl: audioUrl,
       isDeleted: false, // Reset soft delete flag on save/overwrite
       deletedAt: null
     };
 
-    // Find existing session to check/preserve the audio file if no new file is uploaded
+    // Find existing session to preserve the audio file if no new file is uploaded
     const existing = await Session.findOne({ id: sessionData.id });
     if (existing) {
       if (!req.file && !audioFile) {
         sessionData.audioFile = existing.audioFile;
+        sessionData.audioUrl = existing.audioUrl;
       }
     }
 
