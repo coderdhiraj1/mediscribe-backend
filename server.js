@@ -120,6 +120,7 @@ const sessionSchema = new mongoose.Schema({
   patientName: { type: String, default: 'Unnamed Patient' },
   title: { type: String, default: 'General Consultation' },
   language: { type: String, default: 'English' },
+  selectedLanguage: { type: String, default: 'auto' },
   date: { type: String },
   transcript: { type: String, default: '' },
   summary: { type: String, default: '' },
@@ -149,7 +150,7 @@ app.get('/api/sessions', async (req, res) => {
 // 2. POST /api/sessions: Save or update session in MongoDB (handles optional audio upload to Cloudinary)
 app.post('/api/sessions', upload.single('audio'), async (req, res) => {
   try {
-    const { id, patientName, title, language, date, transcript, summary } = req.body;
+    const { id, patientName, title, language, selectedLanguage, date, transcript, summary } = req.body;
     let audioUrl = req.body.audioUrl || null;
     let audioFile = req.body.audioFile || null;
 
@@ -177,6 +178,7 @@ app.post('/api/sessions', upload.single('audio'), async (req, res) => {
       patientName: patientName || 'Unnamed Patient',
       title: title || 'General Consultation',
       language: language || 'English',
+      selectedLanguage: selectedLanguage || 'auto',
       date: date || new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
       transcript: transcript || '',
       summary: summary || '',
@@ -463,7 +465,179 @@ app.post('/api/summary', async (req, res) => {
   res.json({ summary: summaryText, apiUsed: usedAPI });
 });
 
+// 6. POST /api/sessions/:id/regenerate: Re-transcribe and re-summarize a session's audio in a new language
+app.post('/api/sessions/:id/regenerate', async (req, res) => {
+  const { id } = req.params;
+  const targetLanguage = req.body.language || 'auto';
 
+  try {
+    const session = await Session.findOne({ id });
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    if (!session.audioFile && !session.audioUrl) {
+      return res.status(400).json({ error: 'No audio recording found for this session.' });
+    }
+
+    // Fail immediately if GROQ API key is missing
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(500).json({ error: 'Groq API Key is not configured on the backend server.' });
+    }
+
+    let tempFilePath = null;
+    let localPath = session.audioFile ? path.join(UPLOADS_DIR, session.audioFile) : null;
+    let fileStream = null;
+
+    if (localPath && fs.existsSync(localPath)) {
+      tempFilePath = localPath;
+      fileStream = fs.createReadStream(tempFilePath);
+    } else if (session.audioUrl) {
+      // Fetch the file from the remote URL (e.g. Cloudinary)
+      try {
+        const fetchRes = await fetch(session.audioUrl);
+        if (!fetchRes.ok) {
+          throw new Error(`Failed to fetch audio from URL: ${fetchRes.statusText}`);
+        }
+        const tempFileName = `temp-regen-${Date.now()}-${session.audioFile || 'audio.mp3'}`;
+        tempFilePath = path.join(UPLOADS_DIR, tempFileName);
+        
+        const dest = fs.createWriteStream(tempFilePath);
+        await new Promise((resolve, reject) => {
+          fetchRes.body.pipe(dest);
+          fetchRes.body.on('error', reject);
+          dest.on('finish', resolve);
+          dest.on('error', reject);
+        });
+        fileStream = fs.createReadStream(tempFilePath);
+      } catch (err) {
+        console.error('Failed to download audio file from URL:', err);
+        return res.status(500).json({ error: `Failed to retrieve audio file for transcription: ${err.message}` });
+      }
+    } else {
+      return res.status(400).json({ error: 'Audio source is empty.' });
+    }
+
+    const isTempFile = tempFilePath !== localPath;
+    let data;
+
+    try {
+      const form = new FormData();
+      form.append('file', fileStream);
+      form.append('model', 'whisper-large-v3');
+      if (targetLanguage !== 'auto') {
+        form.append('language', targetLanguage);
+      }
+      form.append('response_format', 'json');
+
+      const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+          ...form.getHeaders()
+        },
+        body: form
+      });
+
+      if (!response.ok) {
+        const status = response.status;
+        const errorText = await response.text();
+        let errorMsg = errorText;
+        try {
+          const parsed = JSON.parse(errorText);
+          errorMsg = parsed.error?.message || errorText;
+        } catch (e) { }
+
+        logAPIActivity('Groq Whisper (Regenerate)', { sessionId: id, language: targetLanguage }, { status, error: errorMsg }, true);
+
+        if (status === 429) {
+          return res.status(429).json({
+            error: `Rate Limit Reached (Free Tier Limit): ${errorMsg}. Please wait a moment before trying again.`
+          });
+        }
+        return res.status(status).json({ error: errorMsg });
+      }
+
+      data = await response.json();
+      logAPIActivity('Groq Whisper (Regenerate)', { sessionId: id, language: targetLanguage }, { transcript: data.text });
+    } finally {
+      // Clean up temporary downloaded file if it was created
+      if (isTempFile && tempFilePath && fs.existsSync(tempFilePath)) {
+        try {
+          fs.unlinkSync(tempFilePath);
+        } catch (unlinkErr) {
+          console.error('Failed to delete temp file:', unlinkErr);
+        }
+      }
+    }
+
+    // Now generate summary
+    let summaryText = null;
+    let usedAPI = '';
+    let apiErrors = [];
+
+    // Try Groq Llama 3.3 first (if key exists)
+    if (process.env.GROQ_API_KEY) {
+      try {
+        summaryText = await generateGroqSummary(data.text, session.patientName);
+        usedAPI = 'Groq Llama 3.3';
+      } catch (error) {
+        console.warn('Groq Llama 3.3 summary generation failed:', error.message || error);
+        apiErrors.push(`Groq: ${error.message || error}`);
+      }
+    }
+
+    // Fallback to Google Gemini
+    if (!summaryText && process.env.GEMINI_API_KEY) {
+      try {
+        summaryText = await generateGeminiSummary(data.text, session.patientName);
+        usedAPI = 'Google Gemini';
+      } catch (error) {
+        console.warn('Google Gemini summary generation failed:', error.message || error);
+        apiErrors.push(`Gemini: ${error.message || error}`);
+      }
+    }
+
+    if (!summaryText) {
+      return res.status(500).json({ error: `Clinical summary generation failed. Remote API errors: ${apiErrors.join(', ')}` });
+    }
+
+    logAPIActivity(`${usedAPI} (Regenerate)`, { sessionId: id, transcriptLength: data.text.length }, { summary: summaryText });
+
+    // Map language code to human friendly name
+    let resolvedLang = 'English';
+    if (targetLanguage === 'hi') resolvedLang = 'Hinglish';
+    else if (targetLanguage === 'ta') resolvedLang = 'Tamil';
+    else if (targetLanguage === 'te') resolvedLang = 'Telugu';
+    else if (targetLanguage === 'bn') resolvedLang = 'Bengali';
+    else if (targetLanguage === 'kn') resolvedLang = 'Kannada';
+    else if (targetLanguage === 'mr') resolvedLang = 'Marathi';
+    else if (targetLanguage === 'ml') resolvedLang = 'Malayalam';
+    else if (targetLanguage === 'auto') {
+      const nameLower = (session.patientName || '').toLowerCase();
+      const titleLower = (session.title || '').toLowerCase();
+      if (nameLower.includes('priya') || titleLower.includes('tamil') || titleLower.includes('migraine')) {
+        resolvedLang = 'Tamil';
+      } else if (nameLower.includes('john') || nameLower.includes('davis') || titleLower.includes('hypertension')) {
+        resolvedLang = 'English';
+      } else {
+        resolvedLang = 'Hinglish';
+      }
+    }
+
+    // Update the session in DB
+    session.transcript = data.text;
+    session.summary = summaryText;
+    session.language = resolvedLang;
+    session.selectedLanguage = targetLanguage;
+    await session.save();
+
+    res.json(session);
+  } catch (error) {
+    console.error('Session regeneration error:', error);
+    res.status(500).json({ error: `Session regeneration failed: ${error.message || error}` });
+  }
+});
 
 // Start the server
 app.listen(PORT, () => {
