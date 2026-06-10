@@ -1,0 +1,40 @@
+[2026-06-10T09:02:47.998Z] [SUCCESS] [Groq Whisper (Regenerate)]
+Request: {
+  "sessionId": "1780996187901",
+  "language": "hi"
+}
+Response: {
+  "transcript": " कि हाई डॉक्टर इसमें से मिसो माइक्रैन लाइक फैसिंग रेगुलर एडक वाल वर्किंग सोच चूंठा देखने जाना तो आ रहा हूं मैं इसे फॉलोग करने चाहता हूं कि इसके बीच में मेडिकेशन नेट टू यूज और अलग है"
+}
+----------------------------------------------------------------------
+
+[2026-06-10T09:02:48.711Z] [SUCCESS] [Groq Llama 3.3 (Regenerate)]
+Request: {
+  "sessionId": "1780996187901",
+  "transcriptLength": 181
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The patient reports experiencing migraine-like symptoms, described as regular, possibly related to work, and affecting their vision, prompting them to seek medical attention.\n- The patient mentions they are having trouble seeing and are experiencing some sort of visual disturbance.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No specific symptoms were denied by the patient during the conversation, however the patient does express concern about potential medication use."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T09:03:01.191Z] [SUCCESS] [Groq Whisper (Regenerate)]
+Request: {
+  "sessionId": "1780996187901",
+  "language": "en"
+}
+Response: {
+  "transcript": " Hi Doctor, I am facing some issue with migraine like I am facing regular headache while working. So just wanted to discuss with you like what is the best practice I need to follow so that in future this can be reduced or like some medication need to use and all."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T09:03:01.644Z] [SUCCESS] [Groq Llama 3.3 (Regenerate)]
+Request: {
+  "sessionId": "1780996187901",
+  "transcriptLength": 263
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The patient reports experiencing regular headaches, which they describe as migraine-like, occurring while working.\n- The patient did not specify the onset or duration of the headaches but is seeking advice on best practices to reduce their frequency.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No specific symptoms were denied by the patient during the conversation."
+}
+----------------------------------------------------------------------
+
