@@ -121,6 +121,7 @@ const sessionSchema = new mongoose.Schema({
   title: { type: String, default: 'General Consultation' },
   language: { type: String, default: 'English' },
   selectedLanguage: { type: String, default: 'auto' },
+  regenerationCount: { type: Number, default: 0 },
   date: { type: String },
   transcript: { type: String, default: '' },
   summary: { type: String, default: '' },
@@ -188,13 +189,16 @@ app.post('/api/sessions', upload.single('audio'), async (req, res) => {
       deletedAt: null
     };
 
-    // Find existing session to preserve the audio file if no new file is uploaded
+    // Find existing session to preserve the audio file and regeneration count if no new file is uploaded
     const existing = await Session.findOne({ id: sessionData.id });
     if (existing) {
       if (!req.file && !audioFile) {
         sessionData.audioFile = existing.audioFile;
         sessionData.audioUrl = existing.audioUrl;
       }
+      sessionData.regenerationCount = existing.regenerationCount || 0;
+    } else {
+      sessionData.regenerationCount = 0;
     }
 
     // Upsert the session document in MongoDB
@@ -476,6 +480,11 @@ app.post('/api/sessions/:id/regenerate', async (req, res) => {
       return res.status(404).json({ error: 'Session not found' });
     }
 
+    // Check if limit reached
+    if ((session.regenerationCount || 0) >= 3) {
+      return res.status(400).json({ error: 'You have reached the maximum limit of 3 regenerations for this session.' });
+    }
+
     if (!session.audioFile && !session.audioUrl) {
       return res.status(400).json({ error: 'No audio recording found for this session.' });
     }
@@ -630,6 +639,7 @@ app.post('/api/sessions/:id/regenerate', async (req, res) => {
     session.summary = summaryText;
     session.language = resolvedLang;
     session.selectedLanguage = targetLanguage;
+    session.regenerationCount = (session.regenerationCount || 0) + 1;
     await session.save();
 
     res.json(session);

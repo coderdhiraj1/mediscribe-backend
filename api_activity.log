@@ -38,3 +38,234 @@ Response: {
 }
 ----------------------------------------------------------------------
 
+[2026-06-10T10:22:21.179Z] [SUCCESS] [Groq Whisper]
+Request: {
+  "filename": "audio-1781086935848-665969331.mp3",
+  "language": "hi"
+}
+Response: {
+  "transcript": " कर दो"
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:22:21.835Z] [SUCCESS] [Groq Llama 3.3]
+Request: {
+  "patientName": "",
+  "transcriptLength": 6
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The conversation does not provide sufficient information to document the patient's symptoms, onset, duration, or severity.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- The conversation does not provide sufficient information to document symptoms denied by the patient. \nThe patient or doctor spoke in Hindi, saying \"kar do\", which translates to \"do it\" in English, but the context of this phrase is unclear in the provided transcript."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:22:34.224Z] [SUCCESS] [Groq Whisper (Regenerate)]
+Request: {
+  "sessionId": "1781086941837",
+  "language": "hi"
+}
+Response: {
+  "transcript": " कर दो"
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:22:34.907Z] [SUCCESS] [Groq Llama 3.3 (Regenerate)]
+Request: {
+  "sessionId": "1781086941837",
+  "transcriptLength": 6
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The conversation does not provide sufficient information to document the patient's symptoms, onset, duration, or severity.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- The conversation does not provide sufficient information to document any symptoms denied by the patient. \nThe transcript provided only contains the phrase \"कर दो\" which translates to \"do it\" in English, but does not provide any relevant medical information."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:26:47.924Z] [SUCCESS] [Groq Whisper (Regenerate)]
+Request: {
+  "sessionId": "1780996187901",
+  "language": "hi"
+}
+Response: {
+  "transcript": " आज डॉक्टर नाम पेशिंस अमिशु विद था माइक्राइन लाइक एम पेशिंस एगुलर हेड़ेक वाल वर्किंग सो जस्ट वांटिट टो डिस्कस विद थिव लाइक वाट इस द पेस्ट प्रैक्टिसिस आई नेड टो फॉलोव सो तथे इन फ्यूचर इसके नेड टो"
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:26:48.697Z] [SUCCESS] [Groq Llama 3.3 (Regenerate)]
+Request: {
+  "sessionId": "1780996187901",
+  "transcriptLength": 194
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The patient reports experiencing headaches, which they describe as migraines, and mentions that these headaches are a regular occurrence.\n- The patient expresses a desire to discuss the best practices to follow in order to manage these headaches and prevent them in the future.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No specific symptoms were denied by the patient during the conversation, as the discussion primarily focused on the patient's experience with migraines and their desire for guidance on management and prevention."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:26:56.915Z] [SUCCESS] [Groq Whisper (Regenerate)]
+Request: {
+  "sessionId": "1780996187901",
+  "language": "auto"
+}
+Response: {
+  "transcript": " Hi Doctor, I am facing some issue with migraine like I am facing regular headache while working. So just wanted to discuss with you like what is the best practice I need to follow so that in future this can be reduced or like some medication need to use and all."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:26:57.547Z] [SUCCESS] [Groq Llama 3.3 (Regenerate)]
+Request: {
+  "sessionId": "1780996187901",
+  "transcriptLength": 263
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The patient reports experiencing regular headaches, likened to migraines, which occur while working.\n- The patient did not specify the onset or duration of these headaches but is seeking advice on best practices to reduce their frequency.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No specific symptoms were denied by the patient during the conversation."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:27:05.882Z] [SUCCESS] [Groq Whisper (Regenerate)]
+Request: {
+  "sessionId": "1780996187901",
+  "language": "en"
+}
+Response: {
+  "transcript": " Hi Doctor, I am facing some issue with migraine like I am facing regular headache while working. So just wanted to discuss with you like what is the best practice I need to follow so that in future this can be reduced or like some medication need to use and all."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:27:06.605Z] [SUCCESS] [Groq Llama 3.3 (Regenerate)]
+Request: {
+  "sessionId": "1780996187901",
+  "transcriptLength": 263
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The patient reports experiencing regular headaches, which they describe as migraine-like, occurring while working.\n- The patient did not specify the onset or duration of the headaches but is seeking advice on best practices to reduce their frequency.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No specific symptoms were denied by the patient during the conversation."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:28:39.388Z] [SUCCESS] [Groq Whisper]
+Request: {
+  "filename": "audio-1781087315778-931060778.mp3",
+  "language": "auto"
+}
+Response: {
+  "transcript": " Hello Doctor, this is Chase2voice"
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:28:39.892Z] [SUCCESS] [Groq Llama 3.3]
+Request: {
+  "patientName": "John Doe 1",
+  "transcriptLength": 34
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The transcript does not contain any information about the patient's symptoms, onset, duration, or severity, as the conversation has not started with the patient, but rather with an introduction from Chase2voice.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- There is no information provided by the patient to list any denied symptoms, as the patient has not spoken about their condition yet."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:29:03.552Z] [SUCCESS] [Groq Whisper (Regenerate)]
+Request: {
+  "sessionId": "1781087319897",
+  "language": "te"
+}
+Response: {
+  "transcript": " హేరు డాక్టర్ దిసే చేస్టు వాస్"
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:29:04.228Z] [SUCCESS] [Groq Llama 3.3 (Regenerate)]
+Request: {
+  "sessionId": "1781087319897",
+  "transcriptLength": 30
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The patient stated \"హేరు డాక్టర్ దిసే చేస్టు వాస్\" which translates to \"I came to see the doctor for a check-up\" in English, but no specific symptoms were mentioned.\n- No information was provided regarding the onset, duration, or patient-reported severity of any symptoms.\n- No systemic symptoms or weaknesses were discussed.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No symptoms were denied by the patient as the conversation did not proceed to discuss any specific symptoms or medical history."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:29:19.594Z] [SUCCESS] [Groq Whisper (Regenerate)]
+Request: {
+  "sessionId": "1781087319897",
+  "language": "hi"
+}
+Response: {
+  "transcript": " कि अ डॉक्टर इसे चेंस वाइस"
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:29:20.314Z] [SUCCESS] [Groq Llama 3.3 (Regenerate)]
+Request: {
+  "sessionId": "1781087319897",
+  "transcriptLength": 26
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The patient presented with a complaint, however the specifics of the complaint were not clearly stated in the provided transcript, as it appears to be incomplete and includes a phrase in Hindi, \"कि अ डॉक्टर इसे चेंस वाइस\", which translates to \"that the doctor has a chance voice\" or is possibly a fragment of a larger statement.\n- No specific symptoms, onset, duration, or patient-reported severity were discussed in the provided transcript.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No symptoms were denied by the patient in the provided transcript, as the conversation appears to be incomplete or not fully transcribed."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:29:28.023Z] [SUCCESS] [Groq Whisper (Regenerate)]
+Request: {
+  "sessionId": "1781087319897",
+  "language": "en"
+}
+Response: {
+  "transcript": " Hello Doctor, this is Chase2voice"
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:29:28.514Z] [SUCCESS] [Groq Llama 3.3 (Regenerate)]
+Request: {
+  "sessionId": "1781087319897",
+  "transcriptLength": 34
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- No symptoms or complaints were discussed in the provided transcript.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No symptoms were denied by the patient as the conversation did not proceed to discuss any medical history or symptoms."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:32:05.619Z] [SUCCESS] [Groq Whisper]
+Request: {
+  "filename": "audio-1781087514442-394800880.mp3",
+  "language": "hi"
+}
+Response: {
+  "transcript": " आप कैसे हैं आप? दवाई ली है तो इस वक्त दर्द नहीं है ये कैसे हुआ? नहाने के बाद पानी पे फिसल कर चोट लग गई शुकर है कि फैक्चर नहीं हुआ अब कुछ दिन आपको अच्छी से आराम तो मिलेगी हाँ कैसे भी हो बहुत दिनों बाद छुटी मिल रही है"
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:32:07.360Z] [SUCCESS] [Groq Llama 3.3]
+Request: {
+  "patientName": "Akansha",
+  "transcriptLength": 216
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The patient reports experiencing pain after slipping and falling on water while bathing, resulting in a injury.\n- The patient denies any fracture.\n- The patient reports that they are currently not experiencing pain due to taking medication.\n- The patient is looking forward to resting for a few days, mentioning it has been a long time since they had a break.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No mention of other symptoms such as productive cough, chest pain, or known drug allergies."
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:32:31.321Z] [ERROR] [Groq Whisper (Regenerate)]
+Request: {
+  "sessionId": "1780827211632",
+  "language": "te"
+}
+Response: {
+  "status": 500,
+  "error": "Internal Server Error"
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:32:40.141Z] [SUCCESS] [Groq Whisper (Regenerate)]
+Request: {
+  "sessionId": "1780827211632",
+  "language": "te"
+}
+Response: {
+  "transcript": " డాక్టర్ గారు, గత రెండు మూడు రోజులుగా కంప్యూటర్ లేదా లెప్టాప్ స్క్రిన్ చూస్తునప్పుడు కొంచే మసకగా కనిపిస్తోంది. ముఖ్యంగా చిన్న అక్షరాలు చదవడానికి ఇబ్బంది అవుతోంది. కళ్ళలో కొద్ధిగా మంటకూడా అనిపిస్తోంది. నా ఆరోగ్యం కూడా అంతగా బాగో లే�"
+}
+----------------------------------------------------------------------
+
+[2026-06-10T10:32:40.960Z] [SUCCESS] [Groq Llama 3.3 (Regenerate)]
+Request: {
+  "sessionId": "1780827211632",
+  "transcriptLength": 231
+}
+Response: {
+  "summary": "CHIEF COMPLAINTS & HISTORY:\n- The patient reports experiencing blurred vision for the past 2-3 days, specifically when looking at computer or laptop screens.\n- The patient has difficulty reading small text.\n- The patient also reports a burning sensation in the eyes.\n- The patient mentions that their overall health has not been good.\n\nDIAGNOSTIC EXCLUSIONS & CONTROLS:\n- No other symptoms were discussed or denied by the patient during the conversation."
+}
+----------------------------------------------------------------------
+
